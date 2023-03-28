@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Focus Youtbe",
+  "description": "Extension to only show allowed youtube videos and channels",
+  "version": "1.0",
+  "action": {
+    "default_popup": "ext_page/Focus.html",
+    "default_icon": "FocusYoutube.png"
+  },
+  "content_scripts": [ 
+    {
+        "js": ["src/content.js"],
+        "matches": ["https://*.youtube.com/*"],
+        "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "permissions": [
+    "storage", 
+    "tabs",
+    "offscreen",
+    "alarms"
+    ]
+}
