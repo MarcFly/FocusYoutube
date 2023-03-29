@@ -49,44 +49,72 @@ var observeDOM = (function(){
         obj.addEventListener("DOMNodeRemoved", callback, false)
       }
     }
-  })()
+})()
 
+const at_re = new RegExp("(?<=\/@)[^/]+(?=\/|$)")
 
-setInterval( function() {
-    chrome.storage.local.get({}, (data) => {
+let intervalId = setInterval( function() {
+
+    chrome.storage.local.get().then((data) => {
         if(data.active == true) {
             // Check if channel, or video's channel is from the allowed list
             // Each square get the channel id associated ideally
-
+            
+            // Grid from home
+            console.debug("Getting from ytd-rich-item-renderer")
             let elements = Array.from(document.getElementsByTagName("ytd-rich-item-renderer"));
-            console.log(elements)
+            console.debug(elements)
             for(let element of elements) {
-                console.log(element)
+                console.debug(element)
                 let items = Array.from(element.getElementsByClassName("yt-simple-endpoint style-scope yt-formatted-string"))
-                console.log(items)
                 for(it of items){
-                    if(!data.list.includes(it.textContent))
+                    console.debug(it)
+                    if(!data.list.includes(it.textContent.replace(/\s+/g, ''))) {
+                        console.debug("removed: "+ it.textContent.replace(/s+/g, ''))
                         element.remove()
+                    }
+                }
+            }
+            
+            // Grid from subscribed
+            console.debug("Getting from ytd-grid-item-renderer")
+            elements = Array.from(document.getElementsByTagName("ytd-grid-video-renderer"));
+            for(let element of elements) {
+                let items = Array.from(element.getElementsByClassName("yt-simple-endpoint style-scope yt-formatted-string"))
+                for(it of items){
+                    if(!data.list.includes(it.textContent.replace(/\s+/g,''))) {
+                        console.debug("removed: "+ it.textContent.replace(/s+/g, ''))
+                        element.remove()
+                    }
                 }
             }
 
-            items = document.getElementsByTagName("ytd-grid-video-renderer");
-            while(items.length > 0) {
-                //if(data.list.)
-                items[0].remove();
+            // Video Recomendations at the side
+            console.debug("Getting from ytd-compact-video-render")
+            elements = Array.from(document.getElementsByTagName("ytd-compact-video-renderer"));
+            for(let element of elements) {
+                let items = Array.from(element.getElementsByClassName("style-scope ytd-channel-name"))
+                for(it of items){
+                    if(it.getAttribute("id") != "text") continue;
+                    if(data.list.includes(it.textContent.replace(/\s+/g, '')) == false) {
+                        console.debug("removed: "+ it.textContent.replace(/s+/g, ''))
+                        element.remove()
+                    }
+                }
             }
         }
     });
 
     
-}, 250);     
+}, 500);
 
+chrome.runtime.sendMessage({"type": "registerInterval", "interval": intervalId})
 
-const hashtag_re = new RegExp("(?<=@).*")
+const hashtag_re = new RegExp("(?<=#).*")
 const days_re = new RegExp("(?<=^\d+\s)[A-Za-z]+\s[A-Za-z]+$")
 
 function onAddException() {
-    console.log("Adding Exception")
+    console.debug("Adding Exception")
     
     chrome.storage.local.get({"list": []}).then((data) => { 
         // Try to get first channel id
@@ -94,37 +122,49 @@ function onAddException() {
 
         let filtered = Array.from(els).filter(x => x.getAttribute('itemprop'))
 
-        console.log(filtered);
-
+        
+        console.debug("Adding channel id...")
         for (let el of filtered) {
             if (el.getAttribute('itemprop') =='channelId'){
-                console.log("Added channelId " + el.content)
+                console.debug("Added channelId " + el.content)
                 data.list.push(el.content)
                 break
             }
         }
 
         // Then the full channel name
-
+        console.debug("Adding full channel @name...")
         els = document.getElementsByClassName("yt-simple-endpoint style-scope yt-formatted-string")
         filtered = Array.from(els).filter(x => x.getAttribute('href'))
-        console.log(filtered)
+        console.debug(filtered)
         for(let el of filtered) {
-            if(el.textContent.match(hashtag_re) == null && el.textContent.match(days_re)){
-                data.list.push(el.textContent)
-                console.log("Added channel name "+ el.textContent)
+            if(el.textContent.match(hashtag_re) == null && el.textContent.match(days_re) == null){
+                data.list.push(el.textContent.replace(/s+/g, ''))
+                console.debug("Added channel name "+ el.textContent.replace(/s+/g, ''))
             }
+        }
+
+        // When we are at the users page, we also might want the coloquial name (not id, not @name)
+        console.debug("Adding coloquial channel name...")
+        els = document.getElementsByClassName("style-scope ytd-channel-name");
+        console.debug(els)
+        filtered = Array.from(els).filter(x => x.localName == "yt-formatted-string")
+        filtered = filtered.filter(x => x.id == "text" && x.textContent != "" )
+        console.debug(filtered)
+        for( let el of filtered) {
+            data.list.push(el.textContent.replace(/s+/g, ''));
+            console.debug("Added coloqiual channel name "+ el.textContent.replace(/s+/g, ''))
         }
 
         
         chrome.storage.local.set({"list":[...new Set(data.list)]})
 
-        console.log(data.list)
+        console.debug(data.list)
     })
 }
 
 function onRemoveException() {
-    console.log("Removing Exception")
+    console.debug("Removing Exception")
     
     chrome.storage.local.get({"list": []}).then((data) => { 
         // Try to get first channel id
@@ -132,11 +172,11 @@ function onRemoveException() {
 
         let filtered = Array.from(els).filter(x => x.getAttribute('itemprop'))
 
-        console.log(filtered);
+        console.debug(filtered);
 
         for (let el of filtered) {
             if (el.getAttribute('itemprop') =='channelId'){
-                console.log("Removed channelId " + el.content)
+                console.debug("Removed channelId " + el.content)
                 data.list = data.list.filter(x => x != el.content);
                 break
             }
@@ -146,18 +186,18 @@ function onRemoveException() {
 
         els = document.getElementsByClassName("yt-simple-endpoint style-scope yt-formatted-string")
         filtered = Array.from(els).filter(x => x.getAttribute('href'))
-        console.log(filtered)
+        console.debug(filtered)
         for(let el of filtered) {
             if(el.textContent.match(hashtag_re) == null && el.textContent.match(days_re)){
                 data.list = data.list.filter(x => x != el.textContent);
-                console.log("Removed channel name "+ el.textContent)
+                console.debug("Removed channel name "+ el.textContent)
             }
         }
 
         
         chrome.storage.local.set({"list":[...new Set(data.list)]})
 
-        console.log(data.list)
+        console.debug(data.list)
     })
 }
 
@@ -167,7 +207,7 @@ function onClearExceptions() {
 
 chrome.runtime.onMessage.addListener(
     function(req, sender, sendResponse) {
-        console.log(req);
+        console.debug(req);
 
         if(req.type == "addException")
             onAddException()

@@ -20,3 +20,15 @@ chrome.action.onClicked.addListener(async (tab) => {
         })
     })
 });        
+
+chrome.runtime.onMessage.addListener(
+    function(req, sender, sendResponse) {
+        console.debug("From background: " + req);
+
+        if(req.type == "registerInterval") {
+            chrome.tabs.onRemoved.addListener(function(tabid, removed) {
+                clearInterval(req.interval)
+            })
+        }
+    } 
+)

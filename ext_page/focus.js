@@ -1,8 +1,9 @@
 function ChangeFocus() {
     chrome.storage.local.get({"active": false}, (data) => {
-        
+        console.debug(data)
         data.active = !data.active
-        console.log("Technically setting active")
+        console.debug(data.active)
+        console.debug("Technically setting active")
         chrome.storage.local.set({"active": data.active}).then((data) => {
             chrome.tabs.query({"active": true, "currentWindow": true}, (tabs) => {
                 for(let tab of tabs)
@@ -32,7 +33,7 @@ function AddException() {
             let channel_at = tab.url.match(channel_at_re)
             let channel_eq = tab.url.match(channel_eq_re)
             
-            console.log(channel_at + "\n" + channel_eq)
+            console.debug(channel_at + "\n" + channel_eq)
 
             if(channel_at != null)
                 for(let at of channel_at)
@@ -58,7 +59,7 @@ function RemoveException() {
             let channel_at = tab.url.match(channel_at_re)
             let channel_eq = tab.url.match(channel_eq_re)
             
-            console.log(channel_at + "\n" + channel_eq)
+            console.debug(channel_at + "\n" + channel_eq)
 
             if(channel_at != null)
                 for(let at of channel_at)
@@ -83,6 +84,6 @@ function ClearExceptions() {
 
 function PrintList() {
     chrome.storage.local.get({"list": []}).then((data) => { 
-        console.log(data.list);
+        console.debug(data.list);
     });
 }
