@@ -5,25 +5,22 @@
 const watch_re = new RegExp(".*watch.*")
 
 setInterval(function() {
-    chrome.tabs.query({"active": true, "currentWindow": true}, function (tabs) {
-        if(tabs[0].url.match(watch_re) != null) return;
-        
-        const body = document.body,
-        html = document.documentElement;
-        
 
-        let height = Math.max(
-        body.scrollHeight,
-        body.offsetHeight,
-        html.clientHeight,
-        html.scrollHeight,
-        html.offsetHeight
-        );
-        
-        if (height * 0.25 < html.scrollTop){
+    const body = document.body,
+    html = document.documentElement;
+    
+    let height = Math.max(
+    body.scrollHeight,
+    body.offsetHeight,
+    html.clientHeight,
+    html.scrollHeight,
+    html.offsetHeight
+    );
+    
+    if (height * 0.1 < html.scrollTop){
         window.scrollTo(0, 0);
-        }
-    })
+    }
+
   }, 100);
 
 
@@ -55,12 +52,12 @@ var observeDOM = (function(){
   })()
 
 
-const local_storage = chrome.storage.local.get().then((data) => { 
-    observeDOM(document.getElementsByTagName("ytd-app")[0], function() {
+setInterval( function() {
+    chrome.storage.local.get({}, (data) => {
         if(data.active == true) {
             // Check if channel, or video's channel is from the allowed list
             // Each square get the channel id associated ideally
-    
+
             let elements = Array.from(document.getElementsByTagName("ytd-rich-item-renderer"));
             console.log(elements)
             for(let element of elements) {
@@ -72,24 +69,21 @@ const local_storage = chrome.storage.local.get().then((data) => {
                         element.remove()
                 }
             }
-    
+
             items = document.getElementsByTagName("ytd-grid-video-renderer");
             while(items.length > 0) {
                 //if(data.list.)
                 items[0].remove();
             }
         }
+    });
+
     
-        
-    });     
-    return data.list 
-});
-
-console.log(local_storage)
+}, 250);     
 
 
-
-
+const hashtag_re = new RegExp("(?<=@).*")
+const days_re = new RegExp("(?<=^\d+\s)[A-Za-z]+\s[A-Za-z]+$")
 
 function onAddException() {
     console.log("Adding Exception")
@@ -99,6 +93,8 @@ function onAddException() {
         let els = document.getElementsByTagName("meta")
 
         let filtered = Array.from(els).filter(x => x.getAttribute('itemprop'))
+
+        console.log(filtered);
 
         for (let el of filtered) {
             if (el.getAttribute('itemprop') =='channelId'){
@@ -112,9 +108,12 @@ function onAddException() {
 
         els = document.getElementsByClassName("yt-simple-endpoint style-scope yt-formatted-string")
         filtered = Array.from(els).filter(x => x.getAttribute('href'))
+        console.log(filtered)
         for(let el of filtered) {
-            data.list.push(el.textContent)
-            console.log("Added channel name "+ el.textContent)
+            if(el.textContent.match(hashtag_re) == null && el.textContent.match(days_re)){
+                data.list.push(el.textContent)
+                console.log("Added channel name "+ el.textContent)
+            }
         }
 
         
@@ -122,6 +121,48 @@ function onAddException() {
 
         console.log(data.list)
     })
+}
+
+function onRemoveException() {
+    console.log("Removing Exception")
+    
+    chrome.storage.local.get({"list": []}).then((data) => { 
+        // Try to get first channel id
+        let els = document.getElementsByTagName("meta")
+
+        let filtered = Array.from(els).filter(x => x.getAttribute('itemprop'))
+
+        console.log(filtered);
+
+        for (let el of filtered) {
+            if (el.getAttribute('itemprop') =='channelId'){
+                console.log("Removed channelId " + el.content)
+                data.list = data.list.filter(x => x != el.content);
+                break
+            }
+        }
+
+        // Then the full channel name
+
+        els = document.getElementsByClassName("yt-simple-endpoint style-scope yt-formatted-string")
+        filtered = Array.from(els).filter(x => x.getAttribute('href'))
+        console.log(filtered)
+        for(let el of filtered) {
+            if(el.textContent.match(hashtag_re) == null && el.textContent.match(days_re)){
+                data.list = data.list.filter(x => x != el.textContent);
+                console.log("Removed channel name "+ el.textContent)
+            }
+        }
+
+        
+        chrome.storage.local.set({"list":[...new Set(data.list)]})
+
+        console.log(data.list)
+    })
+}
+
+function onClearExceptions() {
+    chrome.storage.local.set({"list":[]})
 }
 
 chrome.runtime.onMessage.addListener(
